@@ -272,8 +272,6 @@ int main() {
     tree.insert(20);
     tree.insert(30);
 
-    // print_in_order();
-    
     tree.del(20);
     
     Node* searchNode = tree.search(10);
