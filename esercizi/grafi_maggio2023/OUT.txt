@@ -1,0 +1,4 @@
+Nodo{1}: distanza dal nodo s: 1, predecessore 0
+Nodo{2}: distanza dal nodo s: 2, predecessore 1
+Nodo{3}: distanza dal nodo s: 3, predecessore 2
+Nodo{4}: distanza dal nodo s: 4, predecessore 3

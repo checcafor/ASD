@@ -30,7 +30,7 @@ class Node {
         string label;
         Color color;
         Node* p;
-        int d, f, key_prim;
+        int d, f, prim_key;
         vector<Edge*> adj;
 
         Node(int key, string label) : key(key), label(label), color(WHITE) {}
@@ -53,42 +53,43 @@ struct Compare {
 
 struct Compare_Prim {
     bool operator() (const Node* a, const Node* b) const {
-        return a->key_prim > b->key_prim; 
+        return a->prim_key > b->prim_key; 
     }
 };
 
+bool compareEdges(Edge* e1, Edge* e2) {
+    return e1->weight < e2->weight;
+}
+
 class UnionFind {
-    private:
-        vector<Node*> parent;
-        vector<int> rank;
     public:
+        vector<int> parent;
+        vector<int> rank;
+
         UnionFind(int n) {
             parent.resize(n);
-            rank.resize(n, 0);
-            for (int i = 0; i < n; i++) {
-                parent[i] = nullptr;
-            }
+            rank.resize(n);
+            for(int i = 0; i < n; i++)
+                parent[i] = i;
         }
 
-        Node* find(Node* u) {
-            if (parent[u->key] != u) {
-                parent[u->key] = find(parent[u->key]);
-            }
-            return parent[u->key];
+        int find(int x) {
+            if(parent[x] != x)
+                parent[x] = find(parent[x]);
+            return parent[x];
         }
 
-        void union_sets(Node* u, Node* v) {
-            Node* root_u = find(u);
-            Node* root_v = find(v);
-            if (root_u != root_v) {
-                if (rank[root_u->key] > rank[root_v->key]) {
-                    parent[root_v->key] = root_u;
-                } else {
-                    parent[root_u->key] = root_v;
-                    if (rank[root_u->key] == rank[root_v->key]) {
-                        rank[root_v->key]++;
-                    }
-                }
+        void unionset(int x, int y) {
+            int findx = find(x);
+            int findy = find(y);
+
+            if(rank[findx] < rank[findy])
+                parent[findy] = findx;
+            else if(rank[findy] < rank[findx])
+                parent[findx] = findy;
+            else {
+                parent[findy] = findx;
+                findx++;
             }
         }
 };
@@ -96,6 +97,8 @@ class UnionFind {
 class Graph {
     private:
         int t = 0;
+
+        vector<Edge*> E;
 
         void add_node(int key, string label = "") {
             if (label.empty()) {
@@ -139,6 +142,12 @@ class Graph {
                 v->p = u;
                 v->d = u->d + weight;
             }
+        }
+
+        void getedges() {
+            for (auto& u : V) 
+                for (auto& edge : u->adj) 
+                    E.push_back(edge);
         }
     public:
         vector<Node*> V;
@@ -235,67 +244,65 @@ class Graph {
             }
         }
 
-        void kruskal() {
-            vector<Edge> edges;
-            
-            // Raccoglie tutti gli archi
+        void prim(int s) {
+            Node* r = V[s];
+            vector<Edge*> mst;
+            int n = V.size();
+            vector<bool> inMST(n, false);
+            priority_queue<Node*, vector<Node*>, Compare> Q;
+
+            r->prim_key = 0;
             for (auto& u : V) {
+                u->prim_key = INF;
+                u->p = nullptr;
+                Q.push(u);
+            }
+            r->prim_key = 0;
+
+            while (!Q.empty()) {
+                Node* u = Q.top(); Q.pop();
+                if (inMST[u->key]) continue;
+
+                inMST[u->key] = true;
+                if (u->p != nullptr) {
+                    mst.push_back(new Edge(u->p, u, u->prim_key)); 
+                }
+
                 for (auto& edge : u->adj) {
-                    if (u->key < edge->v->key) { 
-                        edges.push_back(*edge);
+                    Node* v = edge->v;
+                    if (!inMST[v->key] and edge->weight < v->prim_key) {
+                        v->p = u;
+                        v->prim_key = edge->weight;
+                        Q.push(v);
                     }
                 }
             }
-
-            // Ordina gli archi per peso
-            sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
-                return a.weight < b.weight;
-            });
-
-            UnionFind uf(V.size());
-            vector<Edge> mst;  // Albero di copertura minimo
-
-            // Aggiungi gli archi al MST
-            for (auto& e : edges) {
-                if (uf.find(e.u) != uf.find(e.v)) {
-                    uf.union_sets(e.u, e.v);
-                    mst.push_back(e);
-                    if (mst.size() == V.size() - 1) {
-                        break;  // trovato il MST
-                    }
-                }
-            }
-
-            // Stampa il MST
-            cout << "Albero di copertura minimo (MST):" << endl;
-            for (auto& e : mst) {
-                cout << "(" << e.u->key << ", " << e.v->key << ") -> Peso: " << e.weight << endl;
-            }
+            print_mst(mst);
         }
 
-        void prim(int r) {
-            for(auto& u : V) {
-                u->key_prim = INF;
-                u->p = nullptr;
+        vector<Edge*> kruskal() {
+            getedges();
+            vector<Edge*> mst;
+            sort(E.begin(), E.end(), compareEdges);
+
+            UnionFind uf(V.size());
+
+            for(Edge* e : E) {
+                int x = e->u->key;
+                int y = e->v->key;
+
+                if(uf.find(x) != uf.find(y)) {
+                    mst.push_back(e);
+                    uf.unionset(x, y);
+                }
             }
 
-            V[r]->key_prim = 0;
-            priority_queue<Node*, vector<Node*>, Compare_Prim> Q;
+            return mst;
+        }
 
-            for(auto& u : V)
-                Q.push(u);
-            
-            while(!Q.empty()) {
-                Node* u = Q.top(); Q.pop();
-
-                for(auto& edge : u->adj) {
-                    if(edge->v->key_prim > edge->weight) {
-                        edge->v->key_prim = edge->weight;
-                        edge->v->p = u;
-                    }
-
-                    Q.push(edge->v);
-                }
+        void print_mst(vector<Edge*> mst) {
+            for (Edge* edge : mst) {
+                cout << edge->u->label << " - " << edge->v->label << " : " << edge->weight << "\n";
             }
         }
 
@@ -353,20 +360,11 @@ int main() {
 
     // Esecuzione di Kruskal
     cout << "\nEsecuzione di Kruskal per l'MST:" << endl;
-    g.kruskal();
+    g.print_mst(g.kruskal());
 
     // Esecuzione di Prim
     cout << "\nEsecuzione di Prim per l'MST dal nodo " << startNode << ":" << endl;
     g.prim(startNode);
-
-    cout << "Risultato Prim:" << endl;
-    for (auto& node : g.V) {
-        if (node->p) {
-            cout << "Nodo " << node->key << " connesso a " << node->p->key << " con peso " << node->key_prim << endl;
-        } else {
-            cout << "Nodo " << node->key << " è la radice MST." << endl;
-        }
-    }
 
     return 0;
 }
