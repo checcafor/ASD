@@ -44,6 +44,38 @@ class Edge {
         Edge(Node* u, Node* v, int weight) : u(u), v(v), weight(weight) {}
 };
 
+class UnionFind {
+    private:
+        vector<int> parent;
+        vector<int> rank;
+    public:
+        UnionFind(int n) {
+            parent.resize(n);
+            rank.resize(n);
+            for(int i = 0; i < n; i++)
+                parent[i] = i;
+        }
+
+        int findset(int i) {
+            if(parent[i] != i) 
+                parent[i] = findset(parent[i]);
+            return parent[i];
+        }
+
+        void union_(int u, int v) {
+            int find_u = findset(u), find_v = findset(v);
+
+            if(rank[find_u] < rank[find_v])
+                parent[find_v] = find_u;
+            else if(rank[find_v] < rank[find_u])
+                parent[find_u] = find_v;
+            else {
+                parent[find_v] = find_u;
+                rank[find_u]++;
+            }
+        }
+};
+
 struct Compare {
     bool operator() (Node* u, Node* v) {
         return u->d > v->d;
@@ -256,6 +288,60 @@ class Grafo {
                 }
             }
         }
+
+        void kruskal() {
+            UnionFind uf(V.size());
+
+            vector<Edge*> edges;
+            for(auto& u : V) {
+                for(auto& edge : u->adj) 
+                    edges.push_back(edge);
+            }
+
+            sort(edges.begin(), edges.end());
+
+            for(auto& edge : edges) {
+                if(uf.findset(edge->u->key) != uf.findset(edge->v->key))
+                    uf.union_(edge->u->key, edge->v->key);
+            }
+        }
+
+        void prim(int source) {
+            Node* s = V[source];
+            vector<Edge*> mst;
+            int n = V.size();
+            vector<bool> inMST(n, false);
+
+            for(auto& u : V) {
+                u->key_prim = INF;
+                u->p = nullptr;
+            }
+
+            s->key_prim = 0;
+            priority_queue<Node*, vector<Node*>, PrimCompare> Q;
+
+            for(auto& u : V)
+                Q.push(u);
+
+            while(!Q.empty()) {
+                Node* u = Q.top(); Q.pop();
+
+                if (inMST[u->key]) continue;
+                inMST[u->key] = true;
+
+                if (u->p != nullptr) {
+                    mst.push_back(new Edge(u->p, u, u->key_prim)); 
+                }
+                
+                for(auto& edge : u->adj) {
+                    if (!inMST[edge->v->key] and edge->weight < edge->v->key_prim) {
+                        edge->v->p = u;
+                        edge->v->key_prim = edge->weight;
+                        Q.push(edge->v);
+                    }
+                }
+            }
+        }
 };
 
 int main() {
@@ -264,6 +350,8 @@ int main() {
     g.trovaSCC();
     g.BFS(0);
     g.bellmanford(0);
+    g.dijkstra(0);
+    g.kruskal();
 
     return 0;
 }
